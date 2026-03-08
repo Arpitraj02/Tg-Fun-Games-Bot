@@ -483,9 +483,12 @@ async def choose_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def joke_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """/joke — Random joke."""
+    user = update.effective_user
+    uid = user.id if user else 0
     setup, punchline = random.choice(JOKES)
-    markup = InlineKeyboardMarkup([[InlineKeyboardButton("🥁 Punchline", callback_data=f"fun:punchline:{escape_html(punchline)[:50]}")]])
-    await _reply(update, f"😂 {bold('Joke Time!')}\n\n{escape_html(setup)}", markup)
+    # Keep punchline short to stay within 64-byte callback_data limit
+    markup = InlineKeyboardMarkup([[InlineKeyboardButton("(^) Punchline", callback_data=f"fun:punchline:{escape_html(punchline)[:38]}:{uid}")]])
+    await _reply(update, f"{bold('Joke Time!')} (^_^)\n\n{escape_html(setup)}", markup)
 
 
 async def joke_punchline_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -743,22 +746,41 @@ async def roulette_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 # ── Callback dispatcher ───────────────────────────────────────────────────────
 
+def _fun_owner_check(query_uid: int, callback_data: str) -> bool:
+    """Return True if the last segment of callback_data matches query_uid."""
+    try:
+        return int(callback_data.rsplit(":", 1)[-1]) == query_uid
+    except (ValueError, IndexError):
+        return True  # legacy data without uid — allow
+
+
 async def fun_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Dispatch fun:* callbacks."""
     query = update.callback_query
-    if not query:
+    user = update.effective_user
+    if not query or not user:
         return
+
+    # ── Owner check ──────────────────────────────────────────────────────────
+    if not _fun_owner_check(user.id, query.data or ""):
+        await query.answer("(x_x)  This is not for you!", show_alert=True)
+        return
+
     await query.answer()
 
-    parts = (query.data or "").split(":", 2)
-    action = parts[1] if len(parts) > 1 else ""
+    # fun:punchline:TEXT:uid — split on first 2 colons only to preserve the text
+    raw = query.data or ""
+    first_split = raw.split(":", 2)
+    action = first_split[1] if len(first_split) > 1 else ""
 
     if action == "punchline":
-        punchline = parts[2] if len(parts) > 2 else "..."
+        payload = first_split[2] if len(first_split) > 2 else ""
+        # Strip the trailing uid (last colon-separated segment)
+        punchline = payload.rsplit(":", 1)[0] if ":" in payload else payload
         try:
             original = query.message.text or ""
             await query.edit_message_text(
-                original + f"\n\n🥁 {bold(escape_html(punchline))}",
+                original + f"\n\n(^_^)  {bold(escape_html(punchline))}",
                 parse_mode=ParseMode.HTML,
             )
         except TelegramError:
