@@ -1,0 +1,113 @@
+# ─── Environment & Secrets ────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+secrets/
+
+# ─── Python ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+wheels/
+share/python-wheels/
+MANIFEST
+pip-wheel-metadata/
+.eggs/
+
+# ─── Virtual Environments ─────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+Pipfile.lock
+poetry.lock
+
+# ─── Database & Data ──────────────────────────────────────
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+backups/
+
+# ─── Alembic ──────────────────────────────────────────────
+alembic/versions/*.py
+!alembic/versions/.gitkeep
+
+# ─── Logs ─────────────────────────────────────────────────
+logs/
+*.log
+*.log.*
+
+# ─── Cache ────────────────────────────────────────────────
+.cache/
+*.cache
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytest_cache/
+.ruff_cache/
+
+# ─── Testing ──────────────────────────────────────────────
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+nosetests.xml
+test-results/
+
+# ─── IDEs & Editors ───────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+
+# ─── Jupyter ──────────────────────────────────────────────
+.ipynb_checkpoints
+*.ipynb
+
+# ─── Distribution / Packaging ─────────────────────────────
+*.tar.gz
+*.zip
+*.whl
+
+# ─── Docker ───────────────────────────────────────────────
+.dockerignore
+
+# ─── Temp / Generated ─────────────────────────────────────
+tmp/
+temp/
+downloads/
+uploads/
+generated/
+stickers/
+qrcodes/
+charts/
