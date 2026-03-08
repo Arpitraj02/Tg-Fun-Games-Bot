@@ -17,7 +17,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
 
-from bot.config import OWNER_ID, Config
+from bot.config import DATABASE_URL, LOG_FILE, OWNER_ID, SUDO_USERS
+from bot.database.connection import get_session
 from bot.database.models import (
     Analytics,
     Economy,
@@ -25,7 +26,6 @@ from bot.database.models import (
     Group,
     Leaderboard,
     User,
-    get_session,
 )
 from bot.helpers.decorators import owner_only, sudo_only
 from bot.helpers.formatters import (
@@ -42,6 +42,7 @@ from bot.helpers.utils import extract_user_and_reason
 
 BOT_START_TIME = time.time()
 MAINTENANCE_MODE = False
+CO_OWNERS: list = []
 
 
 # ── /gban ──────────────────────────────────────────────────────────────────────
@@ -231,8 +232,8 @@ async def addowner_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_id:
         await update.message.reply_text("❌ Provide a user.")
         return
-    if user_id not in Config.CO_OWNERS:
-        Config.CO_OWNERS.append(user_id)
+    if user_id not in CO_OWNERS:
+        CO_OWNERS.append(user_id)
     await update.message.reply_html(f"✅ <code>{user_id}</code> added as co-owner.")
 
 
@@ -242,8 +243,8 @@ async def removeowner_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_id:
         await update.message.reply_text("❌ Provide a user.")
         return
-    if user_id in Config.CO_OWNERS:
-        Config.CO_OWNERS.remove(user_id)
+    if user_id in CO_OWNERS:
+        CO_OWNERS.remove(user_id)
     await update.message.reply_html(f"✅ <code>{user_id}</code> removed from co-owners.")
 
 
@@ -254,8 +255,8 @@ async def addsudo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_id:
         await update.message.reply_text("❌ Provide a user.")
         return
-    if user_id not in Config.SUDO_USERS:
-        Config.SUDO_USERS.append(user_id)
+    if user_id not in SUDO_USERS:
+        SUDO_USERS.append(user_id)
     await update.message.reply_html(f"✅ <code>{user_id}</code> added as sudo user.")
 
 
@@ -265,14 +266,14 @@ async def removesudo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_id:
         await update.message.reply_text("❌ Provide a user.")
         return
-    if user_id in Config.SUDO_USERS:
-        Config.SUDO_USERS.remove(user_id)
+    if user_id in SUDO_USERS:
+        SUDO_USERS.remove(user_id)
     await update.message.reply_html(f"✅ <code>{user_id}</code> removed from sudo users.")
 
 
 @sudo_only
 async def sudolist_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    sudo_ids = Config.SUDO_USERS
+    sudo_ids = SUDO_USERS
     if not sudo_ids:
         await update.message.reply_text("ℹ️ No sudo users configured.")
         return
@@ -645,7 +646,7 @@ async def usage_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @sudo_only
 async def logs_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     n = int(context.args[0]) if context.args else 20
-    log_file = Config.LOG_FILE
+    log_file = LOG_FILE
     if not os.path.exists(log_file):
         await update.message.reply_text("ℹ️ Log file not found.")
         return
@@ -658,7 +659,7 @@ async def logs_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ── /dbbackup ──────────────────────────────────────────────────────────────────
 @owner_only
 async def dbbackup_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    db_url = Config.DATABASE_URL
+    db_url = DATABASE_URL
     if "sqlite" not in db_url:
         await update.message.reply_text("ℹ️ Backup only supported for SQLite databases.")
         return

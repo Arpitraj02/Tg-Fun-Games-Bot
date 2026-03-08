@@ -356,6 +356,29 @@ async def invalidate_fed_cache(fed_id: str) -> bool:
 
 # -- Flood tracking (Redis-backed) --
 
+async def get_cache_stats() -> dict:
+    """
+    Return basic statistics about the Redis cache.
+    Returns a dict with keys like 'connected', 'used_memory', 'total_keys'.
+    """
+    r = await get_redis()
+    if r is None:
+        return {"connected": False}
+    try:
+        info = await r.info()
+        total_keys = await r.dbsize()
+        return {
+            "connected": True,
+            "used_memory_bytes": info.get("used_memory", 0),
+            "total_keys": total_keys,
+            "uptime_seconds": info.get("uptime_in_seconds", "N/A"),
+            "redis_version": info.get("redis_version", "N/A"),
+        }
+    except Exception as exc:
+        logger.debug("get_cache_stats error: %s", exc)
+        return {"connected": False, "error": str(exc)}
+
+
 async def record_message(user_id: int, chat_id: int, window: int = 5) -> int:
     """
     Increment the per-user message counter within the current window.
