@@ -318,9 +318,10 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     name_html = escape_html(user.full_name)
     username_line = f"\n◆ {bold('Username:')} @{user.username}" if user.username else ""
+    profile_title = bold(name_html + "'s Profile")
 
     text = (
-        f"{bold(f'{name_html}' + chr(39) + 's Profile')}  (^_^)\n\n"
+        f"{profile_title}  (^_^)\n\n"
         f"◆ {bold('ID:')} {code(str(user.id))}"
         f"{username_line}\n"
         f"◆ {bold('Level:')} {code(str(level))}\n"
@@ -471,9 +472,10 @@ async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         bar = xp_bar(xp or 0, level)
 
         name_html = escape_html(user.full_name)
+        profile_title = bold(name_html + "'s Profile")
         try:
             await query.edit_message_text(
-                f"{bold(name_html + chr(39) + 's Profile')}  (^_^)\n\n"
+                f"{profile_title}  (^_^)\n\n"
                 f"◆ {bold('Level:')} {code(str(level))}\n"
                 f"◆ {bold('XP:')} {code(str(xp or 0))}  {bar}\n"
                 f"◆ {bold('Reputation:')} {code(str(rep or 0))}\n"

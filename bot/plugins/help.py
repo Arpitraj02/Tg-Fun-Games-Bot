@@ -265,7 +265,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "Welcome": {
-        "emoji": "👋",
+        "emoji": "(hi)",
         "description": "Welcome, goodbye, rules and captcha settings.",
         "commands": [
             {
@@ -655,7 +655,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "Stickers": {
-        "emoji": "(*)",
+        "emoji": "[st]",
         "description": "Sticker pack creation and management.",
         "commands": [
             {
