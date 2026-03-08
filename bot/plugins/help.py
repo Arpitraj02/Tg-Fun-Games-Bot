@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # Each entry: {"name", "syntax", "description", "examples", "aliases", "permission"}
 HELP_DATA: Dict[str, Dict] = {
     "Admin": {
-        "emoji": "🛡️",
+        "emoji": "(*)",
         "description": "Group administration and management commands.",
         "commands": [
             {
@@ -147,7 +147,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "Moderation": {
-        "emoji": "🔨",
+        "emoji": "[=]",
         "description": "Commands to moderate and manage group members.",
         "commands": [
             {
@@ -311,7 +311,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "Economy": {
-        "emoji": "💰",
+        "emoji": "($)",
         "description": "Virtual economy — coins, bank, shop and rewards.",
         "commands": [
             {
@@ -357,7 +357,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "Fun": {
-        "emoji": "🎉",
+        "emoji": "(*o*)",
         "description": "Fun commands and random generators.",
         "commands": [
             {
@@ -403,7 +403,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "Games": {
-        "emoji": "🎮",
+        "emoji": "(^_^)",
         "description": "In-group games to play with other members.",
         "commands": [
             {
@@ -449,7 +449,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "Social": {
-        "emoji": "🤝",
+        "emoji": "(>_<)",
         "description": "Social interaction commands — rep, profile, etc.",
         "commands": [
             {
@@ -487,7 +487,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "AI": {
-        "emoji": "🤖",
+        "emoji": "(o_o)",
         "description": "AI-powered features using OpenAI.",
         "commands": [
             {
@@ -525,7 +525,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "Media": {
-        "emoji": "📸",
+        "emoji": "[~]",
         "description": "Media processing and generation commands.",
         "commands": [
             {
@@ -563,7 +563,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "Info": {
-        "emoji": "ℹ️",
+        "emoji": "(i)",
         "description": "Information and lookup commands.",
         "commands": [
             {
@@ -609,7 +609,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "Utilities": {
-        "emoji": "🔧",
+        "emoji": "[+]",
         "description": "Useful utility commands.",
         "commands": [
             {
@@ -655,7 +655,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "Stickers": {
-        "emoji": "🎨",
+        "emoji": "(*)",
         "description": "Sticker pack creation and management.",
         "commands": [
             {
@@ -693,7 +693,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "Notes": {
-        "emoji": "📝",
+        "emoji": "[n]",
         "description": "Save and retrieve notes by keyword.",
         "commands": [
             {
@@ -739,7 +739,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "Federation": {
-        "emoji": "🌐",
+        "emoji": "(~)",
         "description": "Federation — share ban lists across multiple groups.",
         "commands": [
             {
@@ -785,7 +785,7 @@ HELP_DATA: Dict[str, Dict] = {
         ],
     },
     "Owner": {
-        "emoji": "👑",
+        "emoji": "[o]",
         "description": "Bot owner and sudo-only commands.",
         "commands": [
             {
@@ -834,11 +834,21 @@ HELP_DATA: Dict[str, Dict] = {
 
 ITEMS_PER_PAGE = 10
 
+# ── User-gating helper ────────────────────────────────────────────────────────
+
+def _owner_check(query_uid: int, callback_data: str) -> bool:
+    """Return True if the last segment of callback_data matches query_uid."""
+    try:
+        return int(callback_data.rsplit(":", 1)[-1]) == query_uid
+    except (ValueError, IndexError):
+        return True  # legacy data without uid — allow
+
 
 # ── Keyboard builders ─────────────────────────────────────────────────────────
 
-def _category_keyboard() -> InlineKeyboardMarkup:
+def _category_keyboard(uid: int = 0) -> InlineKeyboardMarkup:
     """Build the main help menu with all category buttons."""
+    u = str(uid)
     categories = list(HELP_DATA.items())
     rows: List[List[InlineKeyboardButton]] = []
 
@@ -846,7 +856,7 @@ def _category_keyboard() -> InlineKeyboardMarkup:
     for name, data in categories:
         btn = InlineKeyboardButton(
             f"{data['emoji']} {name}",
-            callback_data=f"help:cat:{name}:0",
+            callback_data=f"help:cat:{name}:0:{u}",
         )
         row.append(btn)
         if len(row) == 2:
@@ -855,38 +865,40 @@ def _category_keyboard() -> InlineKeyboardMarkup:
     if row:
         rows.append(row)
 
-    rows.append([InlineKeyboardButton("🔍 Search Commands", callback_data="help:search")])
-    rows.append([InlineKeyboardButton("❌ Close", callback_data="help:close")])
+    rows.append([InlineKeyboardButton("(?) Search Commands", callback_data=f"help:search:{u}")])
+    rows.append([InlineKeyboardButton("(x) Close", callback_data=f"help:close:{u}")])
     return InlineKeyboardMarkup(rows)
 
 
-def _commands_keyboard(category: str, page: int, total_pages: int) -> InlineKeyboardMarkup:
+def _commands_keyboard(category: str, page: int, total_pages: int, uid: int = 0) -> InlineKeyboardMarkup:
     """Build navigation keyboard for a category's command list."""
+    u = str(uid)
     nav: List[InlineKeyboardButton] = []
     if page > 0:
-        nav.append(InlineKeyboardButton("◀️", callback_data=f"help:cat:{category}:{page - 1}"))
-    nav.append(InlineKeyboardButton(f"📄 {page + 1}/{total_pages}", callback_data="help:noop"))
+        nav.append(InlineKeyboardButton("◄", callback_data=f"help:cat:{category}:{page - 1}:{u}"))
+    nav.append(InlineKeyboardButton(f"[ {page + 1}/{total_pages} ]", callback_data=f"help:noop:{u}"))
     if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("▶️", callback_data=f"help:cat:{category}:{page + 1}"))
+        nav.append(InlineKeyboardButton("►", callback_data=f"help:cat:{category}:{page + 1}:{u}"))
 
     return InlineKeyboardMarkup(
         [
             nav,
             [
-                InlineKeyboardButton("🔙 Categories", callback_data="help:menu"),
-                InlineKeyboardButton("🔍 Search", callback_data="help:search"),
+                InlineKeyboardButton("◄ Categories", callback_data=f"help:menu:{u}"),
+                InlineKeyboardButton("(?) Search", callback_data=f"help:search:{u}"),
             ],
         ]
     )
 
 
-def _command_detail_keyboard(category: str) -> InlineKeyboardMarkup:
+def _command_detail_keyboard(category: str, uid: int = 0) -> InlineKeyboardMarkup:
+    u = str(uid)
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
-                    f"🔙 Back to {category}",
-                    callback_data=f"help:cat:{category}:0",
+                    f"◄ Back to {category}",
+                    callback_data=f"help:cat:{category}:0:{u}",
                 )
             ]
         ]
@@ -909,7 +921,7 @@ def _build_category_list_text(category: str, page: int) -> Tuple[str, int]:
     ]
     for cmd in page_cmds:
         aliases = f" | {', '.join(code('/' + a) for a in cmd['aliases'])}" if cmd["aliases"] else ""
-        lines.append(f"• {code('/' + cmd['name'])}{aliases}")
+        lines.append(f"◆ {code('/' + cmd['name'])}{aliases}")
         lines.append(f"  └ {cmd['description']}")
         lines.append("")
 
@@ -920,22 +932,22 @@ def _build_category_list_text(category: str, page: int) -> Tuple[str, int]:
 def _build_command_detail_text(cmd: dict) -> str:
     """Return full detail text for a single command."""
     lines = [
-        f"📖 {bold(cmd['name'].upper())}",
+        f"{bold(cmd['name'].upper())}  (i)",
         "",
-        f"📝 {bold('Description:')}\n{cmd['description']}",
+        f"{bold('Description:')}\n{cmd['description']}",
         "",
-        f"📌 {bold('Syntax:')}\n{code(cmd['syntax'])}",
+        f"{bold('Syntax:')}\n{code(cmd['syntax'])}",
     ]
 
     if cmd.get("aliases"):
-        lines += ["", f"🔀 {bold('Aliases:')} {', '.join(code('/' + a) for a in cmd['aliases'])}"]
+        lines += ["", f"{bold('Aliases:')} {', '.join(code('/' + a) for a in cmd['aliases'])}"]
 
     if cmd.get("examples"):
-        lines += ["", f"💡 {bold('Examples:')}"]
+        lines += ["", f"{bold('Examples:')}"]
         for ex in cmd["examples"]:
-            lines.append(f"  • {code(ex)}")
+            lines.append(f"  ◆ {code(ex)}")
 
-    lines += ["", f"🔒 {bold('Permission:')} {cmd.get('permission', 'Member')}"]
+    lines += ["", f"{bold('Permission:')} {cmd.get('permission', 'Member')}"]
     return "\n".join(lines)
 
 
@@ -982,18 +994,20 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     /help <category>   → commands in category
     /help <command>    → detailed command help
     """
+    user = update.effective_user
+    uid = user.id if user else 0
     query = " ".join(context.args).strip() if context.args else ""
 
     if not query:
         text = (
-            f"🆘 {bold('Help Menu')}\n\n"
+            f"{bold('Help Menu')}  (~_~)\n\n"
             "Browse commands by category or use /search_help to find a specific command.\n\n"
-            "📋 Available categories:"
+            "Available categories:"
         )
         await update.effective_message.reply_text(
             text,
             parse_mode=ParseMode.HTML,
-            reply_markup=_category_keyboard(),
+            reply_markup=_category_keyboard(uid),
         )
         return
 
@@ -1004,7 +1018,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.effective_message.reply_text(
             text,
             parse_mode=ParseMode.HTML,
-            reply_markup=_commands_keyboard(cat_key, 0, total),
+            reply_markup=_commands_keyboard(cat_key, 0, total, uid),
         )
         return
 
@@ -1015,7 +1029,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.effective_message.reply_text(
             _build_command_detail_text(cmd),
             parse_mode=ParseMode.HTML,
-            reply_markup=_command_detail_keyboard(category),
+            reply_markup=_command_detail_keyboard(category, uid),
         )
         return
 
@@ -1023,15 +1037,15 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     hits = _search_commands(query)
     if not hits:
         await update.effective_message.reply_text(
-            f"❌ No command or category found matching {code(escape_html(query))}.\n"
+            f"(x)  No command or category found matching {code(escape_html(query))}.\n"
             "Use /help to browse all categories.",
             parse_mode=ParseMode.HTML,
         )
         return
 
-    lines = [f"🔍 {bold('Search Results')} for {code(escape_html(query))}:", ""]
+    lines = [f"{bold('Search Results')}  (?)  for {code(escape_html(query))}:", ""]
     for category, cmd in hits[:15]:
-        lines.append(f"• {code('/' + cmd['name'])} ({italic(category)}) — {cmd['description']}")
+        lines.append(f"◆ {code('/' + cmd['name'])} ({italic(category)}) — {cmd['description']}")
     if len(hits) > 15:
         lines.append(f"\n{italic(f'... and {len(hits) - 15} more results.')}")
 
@@ -1039,16 +1053,19 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "\n".join(lines),
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("🔙 Help Menu", callback_data="help:menu")]]
+            [[InlineKeyboardButton("◄ Help Menu", callback_data=f"help:menu:{uid}")]]
         ),
     )
 
 
 async def search_help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """/search_help <keyword> — Search commands by keyword."""
+    user = update.effective_user
+    uid = user.id if user else 0
+
     if not context.args:
         await update.effective_message.reply_text(
-            f"🔍 {bold('Command Search')}\n\nUsage: {code('/search_help &lt;keyword&gt;')}\n"
+            f"{bold('Command Search')}  (?)\n\nUsage: {code('/search_help &lt;keyword&gt;')}\n"
             f"Example: {code('/search_help ban')}",
             parse_mode=ParseMode.HTML,
         )
@@ -1059,22 +1076,22 @@ async def search_help_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if not hits:
         await update.effective_message.reply_text(
-            f"❌ No results for {code(escape_html(query))}.",
+            f"(x)  No results for {code(escape_html(query))}.",
             parse_mode=ParseMode.HTML,
         )
         return
 
-    lines = [f"🔍 {bold('Search Results')} for {code(escape_html(query))}:", ""]
+    lines = [f"{bold('Search Results')}  (?)  for {code(escape_html(query))}:", ""]
     for category, cmd in hits[:20]:
-        lines.append(f"• {code('/' + cmd['name'])} — {cmd['description']}")
-        lines.append(f"  📂 Category: {italic(category)}")
+        lines.append(f"◆ {code('/' + cmd['name'])} — {cmd['description']}")
+        lines.append(f"  Category: {italic(category)}")
         lines.append("")
 
     await update.effective_message.reply_text(
         "\n".join(lines),
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("🔙 Help Menu", callback_data="help:menu")]]
+            [[InlineKeyboardButton("◄ Help Menu", callback_data=f"help:menu:{uid}")]]
         ),
     )
 
@@ -1084,35 +1101,50 @@ async def search_help_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle all help:* callback queries."""
     query = update.callback_query
+    user = update.effective_user
+    if not query or not user:
+        return
+
+    # ── Owner check ──────────────────────────────────────────────────────────
+    if not _owner_check(user.id, query.data or ""):
+        await query.answer("(x_x)  This menu is not for you!", show_alert=True)
+        return
+
     await query.answer()
 
-    data = query.data  # e.g. "help:menu", "help:cat:Admin:0", "help:cmd:ban"
+    data = query.data  # e.g. "help:menu:uid", "help:cat:Admin:0:uid"
+    uid = user.id
 
-    parts = data.split(":", 3)
+    # Split enough to get action; uid is always the last segment
+    parts = data.split(":")
     action = parts[1] if len(parts) > 1 else ""
 
     if action == "menu":
         text = (
-            f"🆘 {bold('Help Menu')}\n\n"
+            f"{bold('Help Menu')}  (~_~)\n\n"
             "Browse commands by category or use /search_help to find a specific command.\n\n"
-            "📋 Available categories:"
+            "Available categories:"
         )
         try:
             await query.edit_message_text(
                 text,
                 parse_mode=ParseMode.HTML,
-                reply_markup=_category_keyboard(),
+                reply_markup=_category_keyboard(uid),
             )
         except TelegramError:
             pass
         return
 
     if action == "cat":
+        # format: help:cat:CATEGORY:PAGE:uid
         category = parts[2] if len(parts) > 2 else ""
-        page = int(parts[3]) if len(parts) > 3 else 0
+        try:
+            page = int(parts[3]) if len(parts) > 3 else 0
+        except ValueError:
+            page = 0
 
         if category not in HELP_DATA:
-            await query.answer("Unknown category.", show_alert=True)
+            await query.answer("(x)  Unknown category.", show_alert=True)
             return
 
         text, total = _build_category_list_text(category, page)
@@ -1120,7 +1152,7 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await query.edit_message_text(
                 text,
                 parse_mode=ParseMode.HTML,
-                reply_markup=_commands_keyboard(category, page, total),
+                reply_markup=_commands_keyboard(category, page, total, uid),
             )
         except TelegramError:
             pass
@@ -1130,14 +1162,14 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         cmd_name = parts[2] if len(parts) > 2 else ""
         result = _find_command(cmd_name)
         if not result:
-            await query.answer("Command not found.", show_alert=True)
+            await query.answer("(x)  Command not found.", show_alert=True)
             return
         category, cmd = result
         try:
             await query.edit_message_text(
                 _build_command_detail_text(cmd),
                 parse_mode=ParseMode.HTML,
-                reply_markup=_command_detail_keyboard(category),
+                reply_markup=_command_detail_keyboard(category, uid),
             )
         except TelegramError:
             pass
@@ -1146,11 +1178,11 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if action == "search":
         try:
             await query.edit_message_text(
-                f"🔍 {bold('Search Help')}\n\nUse the command:\n{code('/search_help &lt;keyword&gt;')}\n\n"
+                f"{bold('Search Help')}  (?)\n\nUse the command:\n{code('/search_help &lt;keyword&gt;')}\n\n"
                 f"Example: {code('/search_help ban')}",
                 parse_mode=ParseMode.HTML,
                 reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("🔙 Back", callback_data="help:menu")]]
+                    [[InlineKeyboardButton("◄ Back", callback_data=f"help:menu:{uid}")]]
                 ),
             )
         except TelegramError:
@@ -1168,7 +1200,7 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if action == "noop":
         return
 
-    await query.answer("Unknown action.", show_alert=True)
+    await query.answer("(x)  Unknown action.", show_alert=True)
 
 
 # ── Registration ──────────────────────────────────────────────────────────────

@@ -211,8 +211,8 @@ async def balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         text += f"\n🎒 {bold('Inventory:')} {', '.join(item_names)}"
 
     markup = InlineKeyboardMarkup([[
-        InlineKeyboardButton("🏦 Bank", callback_data=f"eco:bank:{user_id}"),
-        InlineKeyboardButton("🛒 Shop", callback_data="eco:shop"),
+        InlineKeyboardButton("Bank", callback_data=f"eco:bank:{user_id}:{user_id}"),
+        InlineKeyboardButton("Shop", callback_data=f"eco:shop:{user_id}"),
     ]])
     await _reply(update, text, markup)
 
@@ -645,28 +645,31 @@ async def transfer_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 # ── /shop ─────────────────────────────────────────────────────────────────────
 
-def _shop_keyboard() -> InlineKeyboardMarkup:
+def _shop_keyboard(uid: int = 0) -> InlineKeyboardMarkup:
+    u = str(uid)
     buttons = []
     for item_id, item in SHOP_ITEMS.items():
         buttons.append([InlineKeyboardButton(
-            f"{item['name']} — {format_number(item['price'])} 🪙",
-            callback_data=f"eco:buy:{item_id}"
+            f"{item['name']} — {format_number(item['price'])} coins",
+            callback_data=f"eco:buy:{item_id}:{u}"
         )])
-    buttons.append([InlineKeyboardButton("🎒 My Inventory", callback_data="eco:inventory")])
+    buttons.append([InlineKeyboardButton("Inventory", callback_data=f"eco:inventory:{u}")])
     return InlineKeyboardMarkup(buttons)
 
 
 async def shop_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """/shop — Browse the item shop."""
-    lines = [f"🛒 {bold('Item Shop')}\n"]
+    user = update.effective_user
+    uid = user.id if user else 0
+    lines = [f"{bold('Item Shop')}\n"]
     for item_id, item in SHOP_ITEMS.items():
         lines.append(
-            f"{item['name']}\n"
-            f"  💰 Price: {code(format_number(item['price']))} coins\n"
-            f"  📝 {item['desc']}\n"
-            f"  🔑 ID: {code(item_id)}"
+            f"{bold(item['name'])}\n"
+            f"  Price: {code(format_number(item['price']))} coins\n"
+            f"  {item['desc']}\n"
+            f"  ID: {code(item_id)}"
         )
-    await _reply(update, "\n".join(lines), _shop_keyboard())
+    await _reply(update, "\n".join(lines), _shop_keyboard(uid))
 
 
 # ── /buy ──────────────────────────────────────────────────────────────────────
@@ -899,6 +902,14 @@ async def richest_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 # ── Callback handler ──────────────────────────────────────────────────────────
 
+def _eco_owner_check(query_uid: int, callback_data: str) -> bool:
+    """Return True if the last segment of callback_data matches query_uid."""
+    try:
+        return int(callback_data.rsplit(":", 1)[-1]) == query_uid
+    except (ValueError, IndexError):
+        return True  # legacy data without uid — allow
+
+
 async def economy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle eco:* callback queries."""
     query = update.callback_query
@@ -906,59 +917,66 @@ async def economy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     chat = update.effective_chat
     if not query or not user or not chat:
         return
+
+    # ── Owner check ──────────────────────────────────────────────────────────
+    if not _eco_owner_check(user.id, query.data or ""):
+        await query.answer("(x_x)  This menu is not for you!", show_alert=True)
+        return
+
     await query.answer()
 
     parts = (query.data or "").split(":")
     action = parts[1] if len(parts) > 1 else ""
 
     if action == "shop":
-        lines = [f"🛒 {bold('Item Shop')}\n"]
+        lines = [f"Item Shop\n"]
         for item_id, item in SHOP_ITEMS.items():
             lines.append(
-                f"{item['name']}\n"
-                f"  💰 {code(format_number(item['price']))} coins\n"
-                f"  📝 {item['desc']}\n"
-                f"  🔑 {code(item_id)}"
+                f"{bold(item['name'])}\n"
+                f"  Price: {code(format_number(item['price']))} coins\n"
+                f"  {item['desc']}\n"
+                f"  ID: {code(item_id)}"
             )
         try:
-            await query.edit_message_text("\n".join(lines), parse_mode=ParseMode.HTML, reply_markup=_shop_keyboard())
+            await query.edit_message_text("\n".join(lines), parse_mode=ParseMode.HTML, reply_markup=_shop_keyboard(user.id))
         except TelegramError:
             pass
 
     elif action == "buy":
+        # format: eco:buy:item_id:uid — uid already verified above
         item_id = parts[2] if len(parts) > 2 else ""
         if item_id not in SHOP_ITEMS:
-            await query.answer("❌ Unknown item.", show_alert=True)
+            await query.answer("(x)  Unknown item.", show_alert=True)
             return
         item = SHOP_ITEMS[item_id]
         eco = await _get_or_create_economy(user.id, chat.id)
         if eco.balance < item["price"]:
-            await query.answer(f"❌ Not enough coins! Need {format_number(item['price'])}.", show_alert=True)
+            await query.answer(f"(x)  Not enough coins! Need {format_number(item['price'])}.", show_alert=True)
             return
         inv = eco.inventory or {}
         if item_id in inv:
-            await query.answer("⚠️ You already own this item!", show_alert=True)
+            await query.answer("(!)  You already own this item!", show_alert=True)
             return
         eco.balance -= item["price"]
         inv[item_id] = {"purchased_at": datetime.now(timezone.utc).isoformat()}
         eco.inventory = inv
         await _save_economy(eco)
-        await query.answer(f"✅ Bought {item['name']} for {format_number(item['price'])} coins!", show_alert=True)
+        await query.answer(f"(^)  Bought {item['name']} for {format_number(item['price'])} coins!", show_alert=True)
 
     elif action == "inventory":
         eco = await _get_or_create_economy(user.id, chat.id)
         inv = eco.inventory or {}
         if not inv:
-            await query.answer("🎒 Your inventory is empty!", show_alert=True)
+            await query.answer("(~)  Your inventory is empty!", show_alert=True)
             return
         item_list = ", ".join(SHOP_ITEMS[k]["name"] for k in inv if k in SHOP_ITEMS)
-        await query.answer(f"🎒 Items: {item_list}", show_alert=True)
+        await query.answer(f"Inventory: {item_list}", show_alert=True)
 
     elif action == "bank":
         uid = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else user.id
         eco = await _get_or_create_economy(uid, chat.id)
         await query.answer(
-            f"🏦 Bank: {format_number(eco.bank)} coins\n👛 Wallet: {format_number(eco.balance)} coins",
+            f"Bank: {format_number(eco.bank)} coins\nWallet: {format_number(eco.balance)} coins",
             show_alert=True
         )
 

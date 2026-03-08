@@ -1017,12 +1017,15 @@ RIDDLES = [
 
 async def riddle_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """/riddle — Random riddle with reveal button."""
+    user = update.effective_user
+    uid = user.id if user else 0
     question, answer = random.choice(RIDDLES)
+    # Truncate answer to keep callback_data within 64 bytes
     markup = InlineKeyboardMarkup([[
-        InlineKeyboardButton("🔍 Reveal Answer", callback_data=f"riddle:reveal:{escape_html(answer)[:50]}")
+        InlineKeyboardButton("(?) Reveal Answer", callback_data=f"riddle:reveal:{escape_html(answer)[:38]}:{uid}")
     ]])
     await update.effective_message.reply_text(
-        f"🤔 {bold('Riddle!')}\n\n{escape_html(question)}",
+        f"{bold('Riddle!')}  (^_^)\n\n{escape_html(question)}",
         parse_mode=ParseMode.HTML,
         reply_markup=markup,
     )
@@ -1030,17 +1033,31 @@ async def riddle_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def riddle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    if not query:
+    user = update.effective_user
+    if not query or not user:
         return
+
+    # ── Owner check ──────────────────────────────────────────────────────────
+    try:
+        owner_id = int((query.data or "").rsplit(":", 1)[-1])
+        if owner_id != 0 and user.id != owner_id:
+            await query.answer("(x_x)  This is not your riddle!", show_alert=True)
+            return
+    except (ValueError, IndexError):
+        pass
+
     await query.answer()
-    parts = (query.data or "").split(":", 2)
+    # riddle:reveal:ANSWER:uid — strip uid from the end
+    raw = query.data or ""
+    parts = raw.split(":", 2)
     if len(parts) < 3:
         return
-    answer = parts[2]
+    payload = parts[2]
+    answer = payload.rsplit(":", 1)[0] if ":" in payload else payload
     try:
         original = query.message.text or ""
         await query.edit_message_text(
-            original + f"\n\n💡 {bold('Answer:')} {escape_html(answer)}",
+            original + f"\n\n(!)  {bold('Answer:')} {escape_html(answer)}",
             parse_mode=ParseMode.HTML,
         )
     except TelegramError:
